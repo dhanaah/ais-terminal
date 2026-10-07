@@ -48,6 +48,7 @@ object ScanTemplates {
     const val DEFAULT_TEMPLATE = "{SCAN}{ENTER}"
 
     val delimiterChoices = listOf(
+        "AT" to "@",
         "PIPE" to "|",
         "COMMA" to ",",
         "SEMICOLON" to ";",
@@ -71,6 +72,7 @@ object ScanTemplates {
 
     fun delimiterText(delimiter: String): String? = when (delimiter.uppercase(Locale.US)) {
         "NONE", "" -> null
+        "AT" -> "@"
         "PIPE" -> "|"
         "COMMA" -> ","
         "SEMICOLON" -> ";"

@@ -3,6 +3,11 @@
 Version control: bump `aisVersionCode` and `aisVersionName` in `app/build.gradle.kts`
 for every release, add an entry here, and tag the commit `vX.Y.Z`.
 
+## 1.2.1 (build 4) – 2026-10-08
+- Supports the AIS FG label QR format `@ITEM@SERIAL@QTY@LOT@SUBINV@MFG_DATE@BATCH`.
+  It adds an `@` split option, and these are now the default field names for every menu.
+  The empty leading field is named `_` and hidden.
+
 ## 1.2.0 (build 3) – 2026-10-07
 - App renamed **AIS_Terminal**.
 - **Transaction menus**: FGWH Receiving, Move to PDI, Move to Packing, Lotout, Org Transfer and Exit.

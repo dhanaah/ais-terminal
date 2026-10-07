@@ -40,9 +40,12 @@ data class TransactionConfig(
     val enabled: Boolean = true,
     val hostNickname: String = "",
     val masterTable: String = "",
-    val qrDelimiter: String = "PIPE",
-    val qrFields: String = "KEY,ITEM,LOT,QTY",
-    val keyField: String = "KEY",
+    // Default layout = AIS FG label QR, e.g.
+    // @SF.T56.LFH.GAG21X0000@338914@53@CL1245.P09266458905@OEM CHN@27-SEP-2026@CL1245
+    // The leading @ gives an empty first field, named "_" (ignored).
+    val qrDelimiter: String = "AT",
+    val qrFields: String = "_,ITEM,SERIAL,QTY,LOT,SUBINV,MFG_DATE,BATCH",
+    val keyField: String = "ITEM",
     val startSequence: String = "",
     val scanTemplate: String = "",
     val exitSequence: String = "",
@@ -57,12 +60,12 @@ object TransactionDefaults {
         TransactionConfig(
             id = "FGWH_RECEIVING",
             title = "FGWH Receiving",
-            scanTemplate = "{QR.ITEM}{TAB}{QR.LOT}{TAB}{QR.QTY|1}{TAB}{M.SUBINVENTORY|FGWH}{TAB}{M.LOCATOR}{ENTER}",
+            scanTemplate = "{QR.ITEM}{TAB}{QR.LOT}{TAB}{QR.QTY|1}{TAB}{QR.SUBINV|FGWH}{TAB}{M.LOCATOR}{ENTER}",
         ),
         TransactionConfig(
             id = "MOVE_TO_PDI",
             title = "Move to PDI",
-            scanTemplate = "{QR.ITEM}{TAB}{QR.LOT}{TAB}{QR.QTY|1}{TAB}{M.SUBINVENTORY|FGWH}{TAB}PDI{ENTER}",
+            scanTemplate = "{QR.ITEM}{TAB}{QR.LOT}{TAB}{QR.QTY|1}{TAB}{QR.SUBINV|FGWH}{TAB}PDI{ENTER}",
         ),
         TransactionConfig(
             id = "MOVE_TO_PACKING",
@@ -175,7 +178,7 @@ object TransactionEngine {
             null
         }
 
-        val values = qr.map { (k, v) -> "QR.$k" to v } +
+        val values = qr.filterKeys { it != "_" }.map { (k, v) -> "QR.$k" to v } +
             (master?.map { (k, v) -> "M.$k" to v } ?: emptyList())
 
         if (config.masterTable.isNotBlank() && master == null && config.requireMaster) {
