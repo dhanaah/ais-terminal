@@ -38,7 +38,7 @@ jobs:
         run: ./gradlew :app:assembleOssDebug --stacktrace
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ais-terminal-debug-apk
           path: app/build/outputs/apk/oss/debug/*.apk
