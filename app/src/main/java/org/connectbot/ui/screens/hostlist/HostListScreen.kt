@@ -18,6 +18,25 @@
 package org.connectbot.ui.screens.hostlist
 
 import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.ui.text.style.TextOverflow
+import org.connectbot.ais.ui.AisHomeHeader
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -120,6 +139,7 @@ fun HostListScreen(
     onNavigateToProfiles: () -> Unit,
     onNavigateToHelp: () -> Unit,
     onNavigateToTools: () -> Unit = {},
+    onOpenAisRoute: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     makingShortcut: Boolean = false,
     onSelectShortcut: (Host, String?, IconStyle) -> Unit = { _, _, _ -> },
@@ -267,6 +287,7 @@ fun HostListScreen(
         onNavigateToProfiles = { adminGuard.run(onNavigateToProfiles) },
         onNavigateToHelp = onNavigateToHelp,
         onNavigateToTools = onNavigateToTools,
+        onOpenAisRoute = onOpenAisRoute,
         onToggleSortOrder = viewModel::toggleSortOrder,
         onDeleteHost = { host -> adminGuard.run { viewModel.deleteHost(host) } },
         onDuplicateHost = { host -> adminGuard.run { viewModel.duplicateHost(host) } },
@@ -292,6 +313,7 @@ fun HostListScreenContent(
     onNavigateToProfiles: () -> Unit,
     onNavigateToHelp: () -> Unit,
     onNavigateToTools: () -> Unit = {},
+    onOpenAisRoute: (String) -> Unit = {},
     onToggleSortOrder: () -> Unit,
     onDeleteHost: (Host) -> Unit,
     onDuplicateHost: (Host) -> Unit,
@@ -318,15 +340,34 @@ fun HostListScreenContent(
         }
     }
 
+    // AIS Terminal: redesigned home — header with live summary, search, quick actions,
+    // host cards and bottom navigation. Developed by DT.
+    var query by remember { mutableStateOf("") }
+    val liveCount = uiState.connectionStates.values.count { it == ConnectionState.CONNECTED }
+    val visibleHosts = remember(uiState.hosts, query) {
+        if (query.isBlank()) {
+            uiState.hosts
+        } else {
+            uiState.hosts.filter {
+                it.nickname.contains(query, ignoreCase = true) || it.hostname.contains(query, ignoreCase = true)
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
+            AisHomeHeader(
+                hostCount = uiState.hosts.size,
+                liveCount = liveCount,
                 actions = {
                     if (!makingShortcut) {
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_more_options))
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.button_more_options),
+                                tint = Color.White,
+                            )
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -392,13 +433,6 @@ fun HostListScreenContent(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("AIS Tools") },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToTools()
-                                },
-                            )
-                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.title_help)) },
                                 onClick = {
                                     showMenu = false
@@ -410,15 +444,43 @@ fun HostListScreenContent(
                 },
             )
         },
+        bottomBar = {
+            if (!makingShortcut) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = true,
+                        onClick = {},
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                        label = { Text("Home") },
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.MACROS) },
+                        icon = { Icon(Icons.Default.Bolt, contentDescription = null) },
+                        label = { Text("Macros") },
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.LOGS) },
+                        icon = { Icon(Icons.Default.Description, contentDescription = null) },
+                        label = { Text("Logs") },
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = onNavigateToTools,
+                        icon = { Icon(Icons.Default.GridView, contentDescription = null) },
+                        label = { Text("Tools") },
+                    )
+                }
+            }
+        },
         floatingActionButton = {
             if (!makingShortcut) {
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = { onNavigateToEditHost(null) },
-                    // This matches the FloatingActionButtonMenu padding
-                    modifier = Modifier.padding(end = 16.dp, bottom = 16.dp),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.hostpref_add_host))
-                }
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.hostpref_add_host)) },
+                )
             }
         },
         modifier = modifier,
@@ -437,17 +499,33 @@ fun HostListScreenContent(
 
                 uiState.hosts.isEmpty() -> {
                     Column(
-                        modifier = Modifier.align(Alignment.Center),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(96.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.Terminal,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(48.dp),
+                            )
+                        }
                         Text(
                             text = stringResource(R.string.empty_hosts_message),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp),
+                            modifier = Modifier.padding(top = 20.dp, bottom = 12.dp),
                         )
-                        TextButton(onClick = { onNavigateToEditHost(null) }) {
-                            Text(stringResource(R.string.hostpref_add_host))
+                        FilledTonalButton(onClick = { onNavigateToEditHost(null) }) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Text(stringResource(R.string.hostpref_add_host), modifier = Modifier.padding(start = 8.dp))
                         }
                     }
                 }
@@ -458,13 +536,63 @@ fun HostListScreenContent(
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
-                            top = 16.dp,
-                            bottom = 104.dp, // Extra padding to avoid FAB menu overlap (88dp + 16dp for menu padding)
+                            top = 12.dp,
+                            bottom = 104.dp,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        item(key = "ais_search") {
+                            OutlinedTextField(
+                                value = query,
+                                onValueChange = { query = it },
+                                placeholder = { Text("Search hosts") },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.extraLarge,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        if (!makingShortcut) {
+                            item(key = "ais_quick") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    AssistChip(
+                                        onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.SCANNER) },
+                                        label = { Text("Scanner") },
+                                        leadingIcon = { Icon(Icons.Default.QrCodeScanner, null, Modifier.size(18.dp)) },
+                                    )
+                                    AssistChip(
+                                        onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.MACROS) },
+                                        label = { Text("Macros") },
+                                        leadingIcon = { Icon(Icons.Default.Bolt, null, Modifier.size(18.dp)) },
+                                    )
+                                    AssistChip(
+                                        onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.LOGS) },
+                                        label = { Text("Logs") },
+                                        leadingIcon = { Icon(Icons.Default.Description, null, Modifier.size(18.dp)) },
+                                    )
+                                    AssistChip(
+                                        onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.ADMIN) },
+                                        label = { Text("Admin") },
+                                        leadingIcon = { Icon(Icons.Default.Lock, null, Modifier.size(18.dp)) },
+                                    )
+                                }
+                            }
+                        }
+                        item(key = "ais_section") {
+                            Text(
+                                if (query.isBlank()) "Hosts" else "Results (${visibleHosts.size})",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+                            )
+                        }
                         items(
-                            items = uiState.hosts,
+                            items = visibleHosts,
                             key = { it.id },
                         ) { host ->
                             HostListItem(
@@ -526,7 +654,7 @@ private fun HostListItem(
 
     var showStatusDialog by remember { mutableStateOf(false) }
     val statusColor = when (connectionState) {
-        ConnectionState.CONNECTED -> colorResource(R.color.host_green)
+        ConnectionState.CONNECTED -> org.connectbot.ui.theme.StatusLive
         ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.onSurfaceVariant
         ConnectionState.UNREAD_OUTPUT -> colorResource(R.color.host_amber)
         ConnectionState.ERROR -> MaterialTheme.colorScheme.error
@@ -565,16 +693,32 @@ private fun HostListItem(
     }
 
     Column(modifier = modifier) {
-        ListItem(
-            supportingContent = {
-                Text("${host.protocol}://${host.hostname}:${host.port}")
-            },
-            leadingContent = {
+        // AIS Terminal: host card
+        val live = connectionState == ConnectionState.CONNECTED
+        ElevatedCard(
+            onClick = onClick,
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = if (live) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerLow
+                },
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(HostListTestTags.itemRow(host.id)),
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(52.dp)
+                        .background(parseColor(host.color), MaterialTheme.shapes.medium)
                         .then(
-                            if (!makingShortcut && connectionState != ConnectionState.UNKNOWN && connectionState != ConnectionState.CONNECTED) {
+                            if (!makingShortcut && connectionState != ConnectionState.UNKNOWN && !live) {
                                 Modifier.clickable(onClickLabel = statusDescription) { showStatusDialog = true }
                             } else {
                                 Modifier
@@ -582,61 +726,63 @@ private fun HostListItem(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // Main host icon with colored background and border
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                color = parseColor(host.color),
-                                shape = CircleShape,
-                            )
-                            .border(
-                                width = 3.dp,
-                                color = statusColor,
-                                shape = CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = when (host.protocol) {
-                                "ssh" -> Icons.Default.Computer
-                                "telnet" -> Icons.Default.Computer
-                                else -> Icons.Default.Link
-                            },
-                            contentDescription = statusDescription.takeIf { it.isNotEmpty() },
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-
-                    // Status badge icon in lower right corner
+                    Text(
+                        text = when (host.protocol) {
+                            "ssh" -> "SSH"
+                            "telnet" -> "TEL"
+                            "mosh" -> "MOSH"
+                            else -> ">_"
+                        },
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 14.dp),
+                ) {
+                    Text(
+                        text = host.nickname,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (host.protocol == "local") "Local shell" else "${host.hostname}:${host.port}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     if (connectionState != ConnectionState.UNKNOWN) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(16.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = CircleShape,
-                                ),
+                                .padding(top = 6.dp)
+                                .background(statusColor.copy(alpha = 0.16f), CircleShape)
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(
-                                imageVector = when (connectionState) {
-                                    ConnectionState.CONNECTED -> Icons.Default.CheckCircle
-                                    ConnectionState.DISCONNECTED -> Icons.Default.LinkOff
-                                    ConnectionState.UNREAD_OUTPUT -> Icons.Default.Info
-                                    ConnectionState.ERROR -> Icons.Default.Error
-                                    ConnectionState.UNKNOWN -> Icons.Default.Computer // Unreachable
+                            Box(
+                                Modifier
+                                    .size(8.dp)
+                                    .background(statusColor, CircleShape),
+                            )
+                            Text(
+                                text = when (connectionState) {
+                                    ConnectionState.CONNECTED -> "Live"
+                                    ConnectionState.DISCONNECTED -> "Disconnected"
+                                    ConnectionState.UNREAD_OUTPUT -> "New output"
+                                    ConnectionState.ERROR -> "Action needed"
+                                    ConnectionState.UNKNOWN -> ""
                                 },
-                                contentDescription = null,
-                                tint = statusColor,
-                                modifier = Modifier.size(16.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(start = 6.dp),
                             )
                         }
                     }
                 }
-            },
-            trailingContent = {
                 if (!makingShortcut) {
                     Box {
                         IconButton(
@@ -697,7 +843,7 @@ private fun HostListItem(
                                     showMenu = false
                                     showDisconnectDialog = true
                                 },
-                                enabled = connectionState == ConnectionState.CONNECTED,
+                                enabled = live,
                                 leadingIcon = {
                                     Icon(Icons.Default.LinkOff, null)
                                 },
@@ -715,17 +861,9 @@ private fun HostListItem(
                         }
                     }
                 }
-            },
-            modifier = Modifier
-                .clickable(onClick = onClick)
-                .testTag(HostListTestTags.itemRow(host.id)),
-        ) {
-            Text(
-                text = host.nickname,
-                fontWeight = FontWeight.Bold,
-            )
+            }
         }
-        HorizontalDivider()
+
 
         if (showDeleteDialog) {
             HostDeleteDialog(

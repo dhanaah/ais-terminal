@@ -17,7 +17,15 @@
 
 package org.connectbot.ais.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -87,17 +95,46 @@ fun AisToolsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                 HorizontalDivider()
             }
 
-            ToolItem(Icons.Default.Bolt, "Macros", "One-tap text and key sequences for the console") {
-                onOpen(AisRoutes.MACROS)
-            }
-            ToolItem(Icons.Default.QrCodeScanner, "Barcode scanner", "Hardware scanner broadcast, camera scan, prefix / suffix") {
-                onOpen(AisRoutes.SCANNER)
-            }
-            ToolItem(Icons.Default.Description, "Session logs", "Record sessions, view, share and export") {
-                onOpen(AisRoutes.LOGS)
-            }
-            ToolItem(Icons.Default.AdminPanelSettings, "Admin lock & kiosk", "PIN, operator mode, screen pinning") {
-                onOpen(AisRoutes.ADMIN)
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ToolTile(
+                        Icons.Default.Bolt,
+                        "Macros",
+                        "One-tap key sequences",
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.onTertiaryContainer,
+                        Modifier.weight(1f),
+                    ) { onOpen(AisRoutes.MACROS) }
+                    ToolTile(
+                        Icons.Default.QrCodeScanner,
+                        "Scanner",
+                        "Templates, defaults, devices",
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.onSecondaryContainer,
+                        Modifier.weight(1f),
+                    ) { onOpen(AisRoutes.SCANNER) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ToolTile(
+                        Icons.Default.Description,
+                        "Session logs",
+                        "Record, view, export",
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.onPrimaryContainer,
+                        Modifier.weight(1f),
+                    ) { onOpen(AisRoutes.LOGS) }
+                    ToolTile(
+                        Icons.Default.AdminPanelSettings,
+                        "Admin & kiosk",
+                        "PIN, operator mode",
+                        MaterialTheme.colorScheme.errorContainer,
+                        MaterialTheme.colorScheme.onErrorContainer,
+                        Modifier.weight(1f),
+                    ) { onOpen(AisRoutes.ADMIN) }
+                }
             }
 
             Card(
@@ -125,11 +162,31 @@ fun AisToolsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun ToolItem(icon: ImageVector, title: String, summary: String, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
-        leadingContent = { Icon(icon, null) },
-        modifier = Modifier.clickable(onClick = onClick),
-    )
+private fun ToolTile(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    container: Color,
+    onContainer: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    ElevatedCard(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier.height(150.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(container, MaterialTheme.shapes.medium),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = onContainer)
+            }
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 14.dp))
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }

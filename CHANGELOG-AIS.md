@@ -3,6 +3,19 @@
 Version control: bump `aisVersionCode` and `aisVersionName` in `app/build.gradle.kts`
 for every release, add an entry here, and tag the commit `vX.Y.Z`.
 
+## 1.1.0 (build 2) – 2026-10-07
+- **New look**: AIS brand colours that follow the phone's light/dark setting, rounded shapes and bolder type.
+  - Home screen: gradient header with live/host counts and role, host search, quick-action chips,
+    host cards with protocol badges and status pills, a "New host" button and bottom navigation (Home / Macros / Logs / Tools).
+  - AIS Tools: a tile dashboard. Settings pages are grouped into cards. The console top bar shows a live status dot.
+- **QR / barcode default data**:
+  - Scan templates: `{SCAN}`, split fields `{S1}` `{S2}`…, and defaults for missing fields `{S3|1}`.
+  - Also `{DATE}` / `{TIME}`, plus every macro key (`{TAB}` `{ENTER}` `{F2}` `{DELAY:300}`).
+  - Splits on `|` `,` `;` Tab, GS (GS1) or space.
+  - Per-host templates override the default.
+  - The live preview shows the exact keys that will be sent.
+  - 1.0 prefix/suffix settings migrate automatically.
+
 ## 1.0.0 (build 1) – 2026-10-07
 Developed by DT. Forked from ConnectBot 1.11.0 (Apache 2.0).
 

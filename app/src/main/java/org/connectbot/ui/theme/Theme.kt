@@ -47,6 +47,8 @@ private val lightScheme = lightColorScheme(
     onSecondaryContainer = md_theme_light_onSecondaryContainer,
     tertiary = md_theme_light_tertiary,
     onTertiary = md_theme_light_onTertiary,
+    tertiaryContainer = md_theme_light_tertiaryContainer,
+    onTertiaryContainer = md_theme_light_onTertiaryContainer,
     error = md_theme_light_error,
     errorContainer = md_theme_light_errorContainer,
     onError = md_theme_light_onError,
@@ -58,9 +60,17 @@ private val lightScheme = lightColorScheme(
     surfaceVariant = md_theme_light_surfaceVariant,
     onSurfaceVariant = md_theme_light_onSurfaceVariant,
     outline = md_theme_light_outline,
+    outlineVariant = md_theme_light_outlineVariant,
     inverseOnSurface = md_theme_light_inverseOnSurface,
     inverseSurface = md_theme_light_inverseSurface,
     inversePrimary = md_theme_light_inversePrimary,
+    surfaceContainerLowest = md_theme_light_surfaceContainerLowest,
+    surfaceContainerLow = md_theme_light_surfaceContainerLow,
+    surfaceContainer = md_theme_light_surfaceContainer,
+    surfaceContainerHigh = md_theme_light_surfaceContainerHigh,
+    surfaceContainerHighest = md_theme_light_surfaceContainerHighest,
+    surfaceBright = md_theme_light_surfaceBright,
+    surfaceDim = md_theme_light_surfaceDim,
 )
 
 private val darkScheme = darkColorScheme(
@@ -74,6 +84,8 @@ private val darkScheme = darkColorScheme(
     onSecondaryContainer = md_theme_dark_onSecondaryContainer,
     tertiary = md_theme_dark_tertiary,
     onTertiary = md_theme_dark_onTertiary,
+    tertiaryContainer = md_theme_dark_tertiaryContainer,
+    onTertiaryContainer = md_theme_dark_onTertiaryContainer,
     error = md_theme_dark_error,
     errorContainer = md_theme_dark_errorContainer,
     onError = md_theme_dark_onError,
@@ -85,16 +97,24 @@ private val darkScheme = darkColorScheme(
     surfaceVariant = md_theme_dark_surfaceVariant,
     onSurfaceVariant = md_theme_dark_onSurfaceVariant,
     outline = md_theme_dark_outline,
+    outlineVariant = md_theme_dark_outlineVariant,
     inverseOnSurface = md_theme_dark_inverseOnSurface,
     inverseSurface = md_theme_dark_inverseSurface,
     inversePrimary = md_theme_dark_inversePrimary,
+    surfaceContainerLowest = md_theme_dark_surfaceContainerLowest,
+    surfaceContainerLow = md_theme_dark_surfaceContainerLow,
+    surfaceContainer = md_theme_dark_surfaceContainer,
+    surfaceContainerHigh = md_theme_dark_surfaceContainerHigh,
+    surfaceContainerHighest = md_theme_dark_surfaceContainerHighest,
+    surfaceBright = md_theme_dark_surfaceBright,
+    surfaceDim = md_theme_dark_surfaceDim,
 )
 
 @Composable
 fun ConnectBotTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // AIS Terminal keeps its brand colours; set true to follow Android 12+ wallpaper colours.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeMode) {
@@ -127,6 +147,7 @@ fun ConnectBotTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
+        shapes = AppShapes,
         content = content,
     )
 }

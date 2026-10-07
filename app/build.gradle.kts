@@ -99,8 +99,8 @@ val prepareOssMoshArtifacts = tasks.register<PrepareOssMoshArtifacts>("prepareOs
 
 // AIS Terminal version control (replaces upstream git-tag versioning).
 // Bump both values for every release and add an entry to CHANGELOG-AIS.md.
-val aisVersionCode = 1
-val aisVersionName = "1.0.0"
+val aisVersionCode = 2
+val aisVersionName = "1.1.0"
 
 android {
     namespace = "org.connectbot"

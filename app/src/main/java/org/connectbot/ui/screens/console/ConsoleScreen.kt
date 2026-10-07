@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imeAnimationSource
 import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -682,7 +683,7 @@ fun ConsoleScreen(
     var showMacroDialog by remember { mutableStateOf(false) }
     org.connectbot.ais.scanner.ScannerBroadcastEffect(currentBridge)
     val openCameraScanner = org.connectbot.ais.scanner.rememberCameraScanner { code ->
-        currentBridge?.let { org.connectbot.ais.scanner.injectScan(context, it, code) }
+        currentBridge?.let { org.connectbot.ais.scanner.injectScan(context, it, code, aisScope) }
     }
 
     // Get current prompt state to check if biometric prompt is active
@@ -1223,12 +1224,25 @@ fun ConsoleScreen(
             val density = LocalDensity.current
             TopAppBar(
                 title = {
-                    Text(
-                        currentBridge?.host?.nickname
-                            ?: stringResource(R.string.console_default_title),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    // AIS Terminal: live status dot + host name
+                    androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .background(
+                                    if (sessionOpen) org.connectbot.ui.theme.StatusLive else org.connectbot.ui.theme.StatusIdle,
+                                    androidx.compose.foundation.shape.CircleShape,
+                                ),
+                        )
+                        Text(
+                            currentBridge?.host?.nickname
+                                ?: stringResource(R.string.console_default_title),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(start = 10.dp),
+                        )
+                    }
                 },
                 modifier = Modifier
                     .testTag("top_app_bar")
@@ -1249,8 +1263,10 @@ fun ConsoleScreen(
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                     )
                 } else {
-                    // Solid color when permanently visible
-                    TopAppBarDefaults.topAppBarColors()
+                    // Solid color when permanently visible (AIS: tonal surface)
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    )
                 },
                 actions = {
                     if (hasMultipleSessions) {

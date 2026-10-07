@@ -25,12 +25,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.connectbot.ais.AisPrefs
+import org.connectbot.ais.macros.MacroParser
 import org.connectbot.service.TerminalBridge
 import timber.log.Timber
 
@@ -107,10 +111,14 @@ object ScanFormatter {
     }
 }
 
-/** Sends a scan into the session the same way the keyboard would. */
-fun injectScan(context: Context, bridge: TerminalBridge, raw: String) {
+/**
+ * Sends a scan into the session using the host's scan profile (template, field split
+ * and defaults). Runs on [scope] so {DELAY:n} steps in the template are honoured.
+ */
+fun injectScan(context: Context, bridge: TerminalBridge, raw: String, scope: CoroutineScope) {
     val prefs = AisPrefs(context)
-    bridge.injectString(ScanFormatter.format(prefs, raw))
+    val sequence = ScanProfileStore(context).render(bridge.host.nickname, raw)
+    scope.launch { MacroParser.send(bridge, sequence) }
     if (prefs.scannerVibrate) bridge.tryKeyVibrate()
 }
 
@@ -123,6 +131,7 @@ fun injectScan(context: Context, bridge: TerminalBridge, raw: String) {
 fun ScannerBroadcastEffect(bridge: TerminalBridge?) {
     val context = LocalContext.current
     val currentBridge by rememberUpdatedState(bridge)
+    val scope = rememberCoroutineScope()
     DisposableEffect(context) {
         val prefs = AisPrefs(context)
         if (!prefs.scannerBroadcastEnabled || prefs.scannerAction.isBlank()) {
@@ -134,7 +143,7 @@ fun ScannerBroadcastEffect(bridge: TerminalBridge?) {
             override fun onReceive(ctx: Context, intent: Intent) {
                 val target = currentBridge ?: return
                 val data = ScanFormatter.extract(intent, keys) ?: return
-                injectScan(ctx, target, data)
+                injectScan(ctx, target, data, scope)
             }
         }
         try {

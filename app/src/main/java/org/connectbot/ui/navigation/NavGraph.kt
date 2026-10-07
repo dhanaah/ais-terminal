@@ -100,6 +100,7 @@ fun ConnectBotNavHost(
                 onNavigateToTools = {
                     navController.navigateSafely(AisRoutes.TOOLS)
                 },
+                onOpenAisRoute = { route -> navController.navigateSafely(route) },
             )
         }
 

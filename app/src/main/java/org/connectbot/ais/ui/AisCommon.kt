@@ -32,7 +32,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.MediumTopAppBar
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -51,8 +56,8 @@ fun AisScaffold(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
+            MediumTopAppBar(
+                title = { Text(title, style = MaterialTheme.typography.headlineSmall) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -88,5 +93,20 @@ fun SwitchRow(title: String, summary: String?, checked: Boolean, onChange: (Bool
         headlineContent = { Text(title) },
         supportingContent = summary?.let { { Text(it) } },
         trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     )
+}
+
+/** Rounded card that groups related settings. */
+@Composable
+fun SettingsCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 6.dp), content = content)
+    }
 }

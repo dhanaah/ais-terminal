@@ -68,6 +68,19 @@ class AisPrefs(context: Context) {
         get() = prefs.getBoolean(K_SCAN_VIBRATE, true)
         set(v) = prefs.edit().putBoolean(K_SCAN_VIBRATE, v).apply()
 
+    /** Default scan template (see ScanTemplates); empty = migrate from prefix/suffix. */
+    var scanTemplate: String
+        get() = prefs.getString(K_SCAN_TEMPLATE, "") ?: ""
+        set(v) = prefs.edit().putString(K_SCAN_TEMPLATE, v).apply()
+
+    var scanDelimiter: String
+        get() = prefs.getString(K_SCAN_DELIM, "PIPE") ?: "PIPE"
+        set(v) = prefs.edit().putString(K_SCAN_DELIM, v).apply()
+
+    var scanHostProfilesJson: String
+        get() = prefs.getString(K_SCAN_HOSTS, "") ?: ""
+        set(v) = prefs.edit().putString(K_SCAN_HOSTS, v).apply()
+
     // ---- Macros ----
     var macrosJson: String
         get() = prefs.getString(K_MACROS, "") ?: ""
@@ -130,6 +143,9 @@ class AisPrefs(context: Context) {
         private const val K_SCAN_TRIM = "scan_trim"
         private const val K_SCAN_CAMERA = "scan_camera"
         private const val K_SCAN_VIBRATE = "scan_vibrate"
+        private const val K_SCAN_TEMPLATE = "scan_template"
+        private const val K_SCAN_DELIM = "scan_delimiter"
+        private const val K_SCAN_HOSTS = "scan_host_profiles"
         private const val K_MACROS = "macros_json"
         private const val K_MACRO_BTN = "macro_button"
         private const val K_LOG_ON = "log_enabled"
