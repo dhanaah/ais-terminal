@@ -41,16 +41,16 @@ data class MasterTable(
 
 /** Simple CSV reader/writer supporting quoted fields, commas, quotes and new lines. */
 object Csv {
-    fun parse(text: String): List<List<String>> {
+    fun parse(text: String, separator: Char? = null): List<List<String>> {
         val rows = mutableListOf<List<String>>()
         val row = mutableListOf<String>()
         val cell = StringBuilder()
         var quoted = false
         var i = 0
-        val src = text.removePrefix("﻿")
+        val src = text.removePrefix("\uFEFF").replace("\r\n", "\n").replace('\r', '\n')
         // Detect ; separated files (common from Excel in some locales).
         val firstLine = src.lineSequence().firstOrNull().orEmpty()
-        val sep = if (firstLine.count { it == ';' } > firstLine.count { it == ',' }) ';' else ','
+        val sep = separator ?: listOf(',', ';', '\t').maxByOrNull { ch -> firstLine.count { it == ch } } ?: ','
         while (i < src.length) {
             val c = src[i]
             if (quoted) {
@@ -66,7 +66,8 @@ object Csv {
                 }
             } else {
                 when (c) {
-                    '"' -> quoted = true
+                    // A quote only opens a quoted cell at the start of a cell (6" PANEL stays literal).
+                    '"' -> if (cell.isEmpty()) quoted = true else cell.append(c)
                     sep -> {
                         row.add(cell.toString())
                         cell.setLength(0)
@@ -91,7 +92,7 @@ object Csv {
     }
 
     private fun quote(v: String) =
-        if (v.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+        if (v.any { it == ',' || it == '"' || it == '\n' || it == '\r' || it == ';' || it == '\t' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
 
     fun write(rows: List<List<String>>): String = rows.joinToString("\n") { r -> r.joinToString(",") { quote(it) } } + "\n"
 }
@@ -209,6 +210,9 @@ object Xlsx {
     }
 }
 
+/** Column / table names usable in {M.NAME}: upper case letters, digits and underscores. */
+fun normalise(name: String): String = name.trim().uppercase(Locale.US).replace(Regex("[^A-Z0-9_]+"), "_").trim('_')
+
 class MasterStore(private val context: Context) {
     private fun dir() = File(context.filesDir, "masters").apply { mkdirs() }
     private fun dataFile(name: String) = File(dir(), "$name.csv")
@@ -238,15 +242,15 @@ class MasterStore(private val context: Context) {
 
     /** Imports a CSV or XLSX stream as table [name]. Returns the stored table description. */
     fun import(name: String, fileName: String, input: InputStream, keyColumn: String? = null): MasterTable {
-        val safe = name.trim().uppercase(Locale.US).replace(Regex("[^A-Z0-9_]+"), "_").ifEmpty { "MASTER" }
+        val safe = normalise(name).ifEmpty { "MASTER" }
         val bytes = input.readBytes()
         val isXlsx = fileName.lowercase(Locale.US).endsWith(".xlsx") ||
             (bytes.size > 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte())
         val rows = if (isXlsx) Xlsx.read(ByteArrayInputStream(bytes)) else Csv.parse(bytes.decodeToString())
         require(rows.size >= 2) { "The file needs a header row and at least one data row" }
-        val header = rows.first().mapIndexed { i, h -> h.trim().ifEmpty { "COL${i + 1}" }.uppercase(Locale.US).replace(' ', '_') }
+        val header = rows.first().mapIndexed { i, h -> normalise(h).ifEmpty { "COL${i + 1}" } }
         val data = rows.drop(1).map { r -> header.indices.map { r.getOrElse(it) { "" }.trim() } }
-        val key = keyColumn?.takeIf { it.uppercase(Locale.US) in header }?.uppercase(Locale.US) ?: header.first()
+        val key = keyColumn?.let { normalise(it) }?.takeIf { it in header } ?: header.first()
         dataFile(safe).writeText(Csv.write(listOf(header) + data))
         val meta = MasterTable(
             name = safe,
@@ -312,7 +316,7 @@ private object MasterCache {
     fun index(meta: MasterTable, file: File): Map<String, Map<String, String>> {
         val stamp = "${file.lastModified()}:${meta.keyColumn}"
         cache[meta.name]?.takeIf { it.stamp == stamp }?.let { return it.index }
-        val rows = if (file.exists()) Csv.parse(file.readText()) else emptyList()
+        val rows = if (file.exists()) Csv.parse(file.readText(), ',') else emptyList()
         val header = rows.firstOrNull() ?: emptyList()
         val keyIdx = header.indexOf(meta.keyColumn).coerceAtLeast(0)
         val index = LinkedHashMap<String, Map<String, String>>()

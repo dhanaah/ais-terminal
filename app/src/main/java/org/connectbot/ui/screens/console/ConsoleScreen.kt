@@ -139,6 +139,7 @@ import androidx.preference.PreferenceManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.service.AuthBanner
@@ -688,14 +689,23 @@ fun ConsoleScreen(
     val lastTxnScan by org.connectbot.ais.txn.TransactionSession.last.collectAsState()
     val txnCount by org.connectbot.ais.txn.TransactionSession.count.collectAsState()
 
+    // One FIFO lock so start / scan / exit key sequences (with {DELAY}s) never interleave.
+    val txnMutex = remember { kotlinx.coroutines.sync.Mutex() }
+
     fun sendKeys(sequence: String) {
         val b = currentBridge ?: return
-        if (sequence.isNotBlank()) aisScope.launch { org.connectbot.ais.macros.MacroParser.send(b, sequence) }
+        if (sequence.isNotBlank()) {
+            aisScope.launch {
+                txnMutex.withLock { org.connectbot.ais.macros.MacroParser.send(b, sequence) }
+            }
+        }
     }
 
     fun startTxn(cfg: org.connectbot.ais.txn.TransactionConfig) {
-        activeTxn?.let { old -> if (old.id != cfg.id) sendKeys(old.exitSequence) }
-        org.connectbot.ais.txn.TransactionSession.start(cfg)
+        val current = activeTxn
+        if (current != null && current.id == cfg.id) return
+        current?.let { old -> sendKeys(old.exitSequence) }
+        org.connectbot.ais.txn.TransactionSession.start(cfg, currentBridge?.host?.id)
         sendKeys(cfg.startSequence)
     }
 
@@ -706,15 +716,24 @@ fun ConsoleScreen(
 
     fun handleScan(code: String) {
         val b = currentBridge ?: return
-        val cfg = activeTxn
+        val cfg = activeTxn?.takeIf { org.connectbot.ais.txn.TransactionSession.activeHostId == b.host.id }
         if (cfg == null) {
             org.connectbot.ais.scanner.injectScan(context, b, code, aisScope)
             return
         }
-        val result = org.connectbot.ais.txn.TransactionEngine.process(context, cfg, code)
-        org.connectbot.ais.txn.TransactionSession.record(result)
-        if (result.status == org.connectbot.ais.txn.ScanStatus.SENT) sendKeys(result.sequence)
         if (aisPrefs.scannerVibrate) b.tryKeyVibrate()
+        aisScope.launch {
+            txnMutex.withLock {
+                // Master lookup reads files; keep it off the main thread.
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    org.connectbot.ais.txn.TransactionEngine.process(context, cfg, code)
+                }
+                org.connectbot.ais.txn.TransactionSession.record(result)
+                if (result.status == org.connectbot.ais.txn.ScanStatus.SENT) {
+                    org.connectbot.ais.macros.MacroParser.send(b, result.sequence)
+                }
+            }
+        }
     }
 
     org.connectbot.ais.scanner.ScannerBroadcastEffect(currentBridge, onScan = { code -> handleScan(code) })
@@ -924,8 +943,10 @@ fun ConsoleScreen(
     // AIS Terminal: a menu chosen on the home screen starts once the session is open.
     LaunchedEffect(currentBridge, sessionOpen) {
         val pending = org.connectbot.ais.txn.TransactionSession.pendingId
-        if (pending != null && sessionOpen && currentBridge != null) {
+        val pendingHost = org.connectbot.ais.txn.TransactionSession.pendingHostId
+        if (pending != null && sessionOpen && currentBridge != null && pendingHost == currentBridge.host.id) {
             org.connectbot.ais.txn.TransactionSession.pendingId = null
+            org.connectbot.ais.txn.TransactionSession.pendingHostId = null
             org.connectbot.ais.txn.TransactionStore(context).get(pending)?.let { startTxn(it) }
         }
     }
@@ -1096,7 +1117,7 @@ fun ConsoleScreen(
                     }
                 }
             }
-            activeTxn?.let { txn ->
+            activeTxn?.takeIf { org.connectbot.ais.txn.TransactionSession.activeHostId == currentBridge?.host?.id }?.let { txn ->
                 org.connectbot.ais.txn.TransactionPanel(
                     config = txn,
                     last = lastTxnScan,

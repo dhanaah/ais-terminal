@@ -599,17 +599,26 @@ fun HostListScreenContent(
                                         configs = txnConfigs,
                                         onSelect = { cfg ->
                                             val wanted = cfg.hostNickname.ifBlank { org.connectbot.ais.AisPrefs(aisContext).defaultTxnHost }
-                                            val target = uiState.hosts.firstOrNull { wanted.isNotBlank() && it.nickname.equals(wanted, ignoreCase = true) }
-                                                ?: uiState.hosts.filter { uiState.connectionStates[it.id] == ConnectionState.CONNECTED }.singleOrNull()
-                                                ?: uiState.hosts.singleOrNull()
+                                            // A configured host must match exactly; fall back only when none is set.
+                                            val target = if (wanted.isNotBlank()) {
+                                                uiState.hosts.firstOrNull { it.nickname.equals(wanted, ignoreCase = true) }
+                                            } else {
+                                                uiState.hosts.filter { uiState.connectionStates[it.id] == ConnectionState.CONNECTED }.singleOrNull()
+                                                    ?: uiState.hosts.singleOrNull()
+                                            }
                                             if (target == null) {
                                                 Toast.makeText(
                                                     aisContext,
-                                                    "Set the host for ${cfg.title} in AIS Tools → Transactions",
+                                                    if (wanted.isNotBlank()) {
+                                                        "Host “$wanted” for ${cfg.title} not found"
+                                                    } else {
+                                                        "Set the host for ${cfg.title} in AIS Tools → Transactions"
+                                                    },
                                                     Toast.LENGTH_LONG,
                                                 ).show()
                                             } else {
                                                 org.connectbot.ais.txn.TransactionSession.pendingId = cfg.id
+                                                org.connectbot.ais.txn.TransactionSession.pendingHostId = target.id
                                                 onNavigateToConsole(target)
                                             }
                                         },

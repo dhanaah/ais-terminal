@@ -160,13 +160,9 @@ data class ScanResult(
 )
 
 object TransactionEngine {
-    private val qrOrMaster = Regex("""\{(QR|M)\.([A-Za-z0-9_]+)(?:\|([^}]*))?\}""", RegexOption.IGNORE_CASE)
-
-    private fun literal(text: String) = text.replace("{", "{{").replace("}", "}}")
-
     /** Splits the QR, looks up the master row and builds the key sequence for this scan. */
     fun process(context: Context, config: TransactionConfig, raw: String): ScanResult {
-        val trimmed = raw.trim()
+        val trimmed = ScanTemplates.trimScan(raw, config.qrDelimiter)
         val parts = ScanTemplates.split(trimmed, config.qrDelimiter, true)
         val names = config.fieldNames()
         val qr = LinkedHashMap<String, String>()
@@ -186,14 +182,14 @@ object TransactionEngine {
             return ScanResult(trimmed, values, "", ScanStatus.NOT_IN_MASTER, "“$key” not found in ${config.masterTable}")
         }
 
-        val withData = qrOrMaster.replace(config.scanTemplate) { m ->
-            val source = m.groupValues[1].uppercase(Locale.US)
-            val field = m.groupValues[2].uppercase(Locale.US)
-            val fallback = m.groupValues[3]
-            val value = if (source == "QR") qr[field].orEmpty() else master?.get(field).orEmpty()
-            literal(value.ifEmpty { fallback })
+        // One pass over the template, so scanned/master values are never re-read as tokens.
+        val sequence = ScanTemplates.render(config.scanTemplate, trimmed, config.qrDelimiter, true) { name ->
+            when {
+                name.startsWith("QR.") -> qr[name.removePrefix("QR.")]
+                name.startsWith("M.") -> master?.get(name.removePrefix("M."))
+                else -> null
+            }
         }
-        val sequence = ScanTemplates.render(withData, trimmed, config.qrDelimiter, true)
         val status = if (config.autoSend) ScanStatus.SENT else ScanStatus.PENDING_CONFIRM
         return ScanResult(trimmed, values, sequence, status, if (master != null) "Master found" else "")
     }
@@ -201,8 +197,14 @@ object TransactionEngine {
 
 /** The menu the operator is working in, shared between the home screen and the console. */
 object TransactionSession {
-    /** Set by the home screen; the console activates it when it opens. */
+    /** Set by the home screen; the console for [pendingHostId] activates it when it opens. */
     @Volatile var pendingId: String? = null
+
+    @Volatile var pendingHostId: Long? = null
+
+    /** Host the active menu belongs to; other sessions do not use it. */
+    @Volatile var activeHostId: Long? = null
+        private set
 
     private val mutableActive = MutableStateFlow<TransactionConfig?>(null)
     val active: StateFlow<TransactionConfig?> = mutableActive.asStateFlow()
@@ -213,7 +215,8 @@ object TransactionSession {
     private val mutableCount = MutableStateFlow(0)
     val count: StateFlow<Int> = mutableCount.asStateFlow()
 
-    fun start(config: TransactionConfig) {
+    fun start(config: TransactionConfig, hostId: Long?) {
+        activeHostId = hostId
         mutableActive.value = config
         mutableLast.value = null
         mutableCount.value = 0
@@ -230,6 +233,7 @@ object TransactionSession {
     }
 
     fun stop() {
+        activeHostId = null
         mutableActive.value = null
         mutableLast.value = null
     }

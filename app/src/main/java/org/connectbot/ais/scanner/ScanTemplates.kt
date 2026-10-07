@@ -57,10 +57,17 @@ object ScanTemplates {
         "NONE" to "No split",
     )
 
+    // Groups: 1 token, 2 field no., 3 field default, 4 date pattern, 5 QR./M. name, 6 its default.
     private val token = Regex(
-        """\{(SCAN|S(\d{1,2})(?:\|([^}]*))?|DATE(?::([^}]*))?|TIME)\}""",
+        """(?<!\{)\{(SCAN|S(\d{1,2})(?:\|([^}]*))?|DATE(?::([^}]*))?|TIME|((?:QR|M)\.[A-Za-z0-9_]+)(?:\|([^}]*))?)\}""",
         RegexOption.IGNORE_CASE,
     )
+
+    /** Trims the scan; keeps leading/trailing tabs or spaces when they are the delimiter. */
+    fun trimScan(raw: String, delimiter: String): String {
+        val d = delimiterText(delimiter)
+        return if (d == "\t" || d == " ") raw.trim { it == '\r' || it == '\n' } else raw.trim()
+    }
 
     fun delimiterText(delimiter: String): String? = when (delimiter.uppercase(Locale.US)) {
         "NONE", "" -> null
@@ -82,14 +89,24 @@ object ScanTemplates {
     }
 
     /** Resolves scan tokens; the result is a macro sequence for MacroParser. */
-    fun render(template: String, raw: String, delimiter: String, trim: Boolean = true): String {
-        val whole = if (trim) raw.trim { it == '\r' || it == '\n' || it == ' ' || it == '\t' } else raw
+    fun render(
+        template: String,
+        raw: String,
+        delimiter: String,
+        trim: Boolean = true,
+        resolver: ((String) -> String?)? = null,
+    ): String {
+        val whole = if (trim) trimScan(raw, delimiter) else raw
         val fields = split(whole, delimiter, trim)
         return token.replace(template) { m ->
             val name = m.groupValues[1].uppercase(Locale.US)
             when {
                 name == "SCAN" -> literal(whole)
                 name == "TIME" -> SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+                m.groupValues[5].isNotEmpty() -> {
+                    val value = resolver?.invoke(m.groupValues[5].uppercase(Locale.US)).orEmpty()
+                    literal(value.ifEmpty { m.groupValues[6] })
+                }
                 name.startsWith("DATE") -> {
                     val pattern = m.groupValues[4].ifBlank { "yyyy-MM-dd" }
                     runCatching { SimpleDateFormat(pattern, Locale.US).format(Date()) }.getOrDefault(m.value)
