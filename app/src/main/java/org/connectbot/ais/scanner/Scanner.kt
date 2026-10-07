@@ -128,9 +128,10 @@ fun injectScan(context: Context, bridge: TerminalBridge, raw: String, scope: Cor
  * the terminal.
  */
 @Composable
-fun ScannerBroadcastEffect(bridge: TerminalBridge?) {
+fun ScannerBroadcastEffect(bridge: TerminalBridge?, onScan: ((String) -> Unit)? = null) {
     val context = LocalContext.current
     val currentBridge by rememberUpdatedState(bridge)
+    val currentOnScan by rememberUpdatedState(onScan)
     val scope = rememberCoroutineScope()
     DisposableEffect(context) {
         val prefs = AisPrefs(context)
@@ -141,9 +142,14 @@ fun ScannerBroadcastEffect(bridge: TerminalBridge?) {
         val keys = prefs.scannerExtraKeys
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                val target = currentBridge ?: return
                 val data = ScanFormatter.extract(intent, keys) ?: return
-                injectScan(ctx, target, data, scope)
+                val handler = currentOnScan
+                if (handler != null) {
+                    handler(data)
+                } else {
+                    val target = currentBridge ?: return
+                    injectScan(ctx, target, data, scope)
+                }
             }
         }
         try {

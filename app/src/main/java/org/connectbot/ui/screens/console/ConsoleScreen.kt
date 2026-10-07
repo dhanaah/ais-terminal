@@ -56,6 +56,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
@@ -681,10 +682,43 @@ fun ConsoleScreen(
     val aisPrefs = remember { org.connectbot.ais.AisPrefs(context) }
     val aisScope = androidx.compose.runtime.rememberCoroutineScope()
     var showMacroDialog by remember { mutableStateOf(false) }
-    org.connectbot.ais.scanner.ScannerBroadcastEffect(currentBridge)
-    val openCameraScanner = org.connectbot.ais.scanner.rememberCameraScanner { code ->
-        currentBridge?.let { org.connectbot.ais.scanner.injectScan(context, it, code, aisScope) }
+    // ---- AIS Terminal: transaction menus (FGWH Receiving, Move to PDI, …) ----
+    var showTxnMenu by remember { mutableStateOf(false) }
+    val activeTxn by org.connectbot.ais.txn.TransactionSession.active.collectAsState()
+    val lastTxnScan by org.connectbot.ais.txn.TransactionSession.last.collectAsState()
+    val txnCount by org.connectbot.ais.txn.TransactionSession.count.collectAsState()
+
+    fun sendKeys(sequence: String) {
+        val b = currentBridge ?: return
+        if (sequence.isNotBlank()) aisScope.launch { org.connectbot.ais.macros.MacroParser.send(b, sequence) }
     }
+
+    fun startTxn(cfg: org.connectbot.ais.txn.TransactionConfig) {
+        activeTxn?.let { old -> if (old.id != cfg.id) sendKeys(old.exitSequence) }
+        org.connectbot.ais.txn.TransactionSession.start(cfg)
+        sendKeys(cfg.startSequence)
+    }
+
+    fun exitTxn() {
+        activeTxn?.let { sendKeys(it.exitSequence) }
+        org.connectbot.ais.txn.TransactionSession.stop()
+    }
+
+    fun handleScan(code: String) {
+        val b = currentBridge ?: return
+        val cfg = activeTxn
+        if (cfg == null) {
+            org.connectbot.ais.scanner.injectScan(context, b, code, aisScope)
+            return
+        }
+        val result = org.connectbot.ais.txn.TransactionEngine.process(context, cfg, code)
+        org.connectbot.ais.txn.TransactionSession.record(result)
+        if (result.status == org.connectbot.ais.txn.ScanStatus.SENT) sendKeys(result.sequence)
+        if (aisPrefs.scannerVibrate) b.tryKeyVibrate()
+    }
+
+    org.connectbot.ais.scanner.ScannerBroadcastEffect(currentBridge, onScan = { code -> handleScan(code) })
+    val openCameraScanner = org.connectbot.ais.scanner.rememberCameraScanner { code -> handleScan(code) }
 
     // Get current prompt state to check if biometric prompt is active
     val promptState by currentBridge?.promptManager?.promptState?.collectAsState()
@@ -697,7 +731,7 @@ fun ConsoleScreen(
 
     // Check if any modal (menu or dialog) is currently active
     val anyModalActive = showMenu || showUrlScanDialog || showResizeDialog ||
-        showDisconnectDialog || showSessionPickerDialog || showTextInputDialog || showMacroDialog ||
+        showDisconnectDialog || showSessionPickerDialog || showTextInputDialog || showMacroDialog || showTxnMenu ||
         isBiometricPromptActive || currentAuthBanner != null
 
     fun restartTitleBarTimer() {
@@ -886,6 +920,15 @@ fun ConsoleScreen(
     val terminalSelectionActive = selectionController?.isSelectionActive == true
     // These values are computed from bridge state and will recompute when uiState.revision changes
     val sessionOpen = currentBridge?.isSessionOpen == true
+
+    // AIS Terminal: a menu chosen on the home screen starts once the session is open.
+    LaunchedEffect(currentBridge, sessionOpen) {
+        val pending = org.connectbot.ais.txn.TransactionSession.pendingId
+        if (pending != null && sessionOpen && currentBridge != null) {
+            org.connectbot.ais.txn.TransactionSession.pendingId = null
+            org.connectbot.ais.txn.TransactionStore(context).get(pending)?.let { startTxn(it) }
+        }
+    }
     val disconnected = currentBridge?.isDisconnected == true
     val canForwardPorts = currentBridge?.canFowardPorts() == true
     val snackbarHostState = remember { SnackbarHostState() }
@@ -1053,6 +1096,20 @@ fun ConsoleScreen(
                     }
                 }
             }
+            activeTxn?.let { txn ->
+                org.connectbot.ais.txn.TransactionPanel(
+                    config = txn,
+                    last = lastTxnScan,
+                    count = txnCount,
+                    onScanCamera = openCameraScanner,
+                    onSend = {
+                        lastTxnScan?.let { sendKeys(it.sequence) }
+                        org.connectbot.ais.txn.TransactionSession.markSent()
+                    },
+                    onChange = { showTxnMenu = true },
+                    onExit = { exitTxn() },
+                )
+            }
             when {
                 uiState.isLoading -> {
                     LoadingScreen(modifier = Modifier.fillMaxSize())
@@ -1190,6 +1247,21 @@ fun ConsoleScreen(
             )
         }
 
+        if (showTxnMenu) {
+            org.connectbot.ais.txn.TransactionMenuSheet(
+                configs = org.connectbot.ais.txn.TransactionStore(context).load(),
+                onDismiss = { showTxnMenu = false },
+                onSelect = { cfg ->
+                    showTxnMenu = false
+                    startTxn(cfg)
+                },
+                onExit = {
+                    showTxnMenu = false
+                    exitTxn()
+                },
+            )
+        }
+
         if (showMacroDialog && currentBridge != null) {
             val macroBridge = currentBridge
             org.connectbot.ais.macros.MacroPickerDialog(
@@ -1276,6 +1348,14 @@ fun ConsoleScreen(
                                 contentDescription = stringResource(R.string.console_switch_session),
                             )
                         }
+                    }
+
+                    // AIS Terminal: transaction menus
+                    IconButton(
+                        onClick = { showTxnMenu = true },
+                        enabled = sessionOpen,
+                    ) {
+                        Icon(Icons.Default.GridView, contentDescription = "Transactions")
                     }
 
                     // AIS Terminal: macros

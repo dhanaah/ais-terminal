@@ -93,7 +93,7 @@ fun AisHomeHeader(
                     .weight(1f)
                     .padding(start = 12.dp),
             ) {
-                Text("AIS Terminal", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                Text("AIS_Terminal", style = MaterialTheme.typography.titleLarge, color = Color.White)
                 Text(greeting, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
             }
             actions()

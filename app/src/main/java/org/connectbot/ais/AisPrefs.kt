@@ -81,6 +81,16 @@ class AisPrefs(context: Context) {
         get() = prefs.getString(K_SCAN_HOSTS, "") ?: ""
         set(v) = prefs.edit().putString(K_SCAN_HOSTS, v).apply()
 
+    // ---- Transactions ----
+    var transactionsJson: String
+        get() = prefs.getString(K_TXN, "") ?: ""
+        set(v) = prefs.edit().putString(K_TXN, v).apply()
+
+    /** Host nickname used by home-screen transaction tiles when a menu has no host of its own. */
+    var defaultTxnHost: String
+        get() = prefs.getString(K_TXN_HOST, "") ?: ""
+        set(v) = prefs.edit().putString(K_TXN_HOST, v.trim()).apply()
+
     // ---- Macros ----
     var macrosJson: String
         get() = prefs.getString(K_MACROS, "") ?: ""
@@ -146,6 +156,8 @@ class AisPrefs(context: Context) {
         private const val K_SCAN_TEMPLATE = "scan_template"
         private const val K_SCAN_DELIM = "scan_delimiter"
         private const val K_SCAN_HOSTS = "scan_host_profiles"
+        private const val K_TXN = "transactions_json"
+        private const val K_TXN_HOST = "transactions_default_host"
         private const val K_MACROS = "macros_json"
         private const val K_MACRO_BTN = "macro_button"
         private const val K_LOG_ON = "log_enabled"

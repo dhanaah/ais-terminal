@@ -34,6 +34,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -65,6 +67,8 @@ object AisRoutes {
     const val SCANNER = "ais_scanner"
     const val LOGS = "ais_logs"
     const val ADMIN = "ais_admin"
+    const val TXN_SETUP = "ais_txn_setup"
+    const val MASTERS = "ais_masters"
 }
 
 @Composable
@@ -135,6 +139,24 @@ fun AisToolsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                         Modifier.weight(1f),
                     ) { onOpen(AisRoutes.ADMIN) }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ToolTile(
+                        Icons.Default.Inventory,
+                        "Transactions",
+                        "Menus, templates, keys",
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.onSecondaryContainer,
+                        Modifier.weight(1f),
+                    ) { onOpen(AisRoutes.TXN_SETUP) }
+                    ToolTile(
+                        Icons.Default.TableChart,
+                        "Master data",
+                        "Import Excel / CSV",
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.onTertiaryContainer,
+                        Modifier.weight(1f),
+                    ) { onOpen(AisRoutes.MASTERS) }
+                }
             }
 
             Card(
@@ -143,7 +165,7 @@ fun AisToolsScreen(onBack: () -> Unit, onOpen: (String) -> Unit) {
                     .padding(16.dp),
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("AIS Terminal", style = MaterialTheme.typography.titleMedium)
+                    Text("AIS_Terminal", style = MaterialTheme.typography.titleMedium)
                     Text("Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
                     Text(AIS_DEVELOPER_CREDIT, style = MaterialTheme.typography.bodySmall)
                     Text(

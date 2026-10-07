@@ -36,6 +36,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.ui.text.style.TextOverflow
+import org.connectbot.ais.admin.findActivity
 import org.connectbot.ais.ui.AisHomeHeader
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -579,6 +580,43 @@ fun HostListScreenContent(
                                         onClick = { onOpenAisRoute(org.connectbot.ais.ui.AisRoutes.ADMIN) },
                                         label = { Text("Admin") },
                                         leadingIcon = { Icon(Icons.Default.Lock, null, Modifier.size(18.dp)) },
+                                    )
+                                }
+                            }
+                        }
+                        if (!makingShortcut && query.isBlank()) {
+                            item(key = "ais_txn") {
+                                val aisContext = LocalContext.current
+                                val txnConfigs = org.connectbot.ais.txn.TransactionStore(aisContext).load()
+                                Column {
+                                    Text(
+                                        "Transactions",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 8.dp),
+                                    )
+                                    org.connectbot.ais.txn.TransactionTiles(
+                                        configs = txnConfigs,
+                                        onSelect = { cfg ->
+                                            val wanted = cfg.hostNickname.ifBlank { org.connectbot.ais.AisPrefs(aisContext).defaultTxnHost }
+                                            val target = uiState.hosts.firstOrNull { wanted.isNotBlank() && it.nickname.equals(wanted, ignoreCase = true) }
+                                                ?: uiState.hosts.filter { uiState.connectionStates[it.id] == ConnectionState.CONNECTED }.singleOrNull()
+                                                ?: uiState.hosts.singleOrNull()
+                                            if (target == null) {
+                                                Toast.makeText(
+                                                    aisContext,
+                                                    "Set the host for ${cfg.title} in AIS Tools → Transactions",
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            } else {
+                                                org.connectbot.ais.txn.TransactionSession.pendingId = cfg.id
+                                                onNavigateToConsole(target)
+                                            }
+                                        },
+                                        onExit = {
+                                            org.connectbot.ais.txn.TransactionSession.stop()
+                                            aisContext.findActivity()?.finish()
+                                        },
                                     )
                                 }
                             }

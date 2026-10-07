@@ -3,6 +3,19 @@
 Version control: bump `aisVersionCode` and `aisVersionName` in `app/build.gradle.kts`
 for every release, add an entry here, and tag the commit `vX.Y.Z`.
 
+## 1.2.0 (build 3) – 2026-10-07
+- App renamed **AIS_Terminal**.
+- **Transaction menus**: FGWH Receiving, Move to PDI, Move to Packing, Lotout, Org Transfer and Exit.
+  - The menus appear on the home screen and on the console's ⊞ button.
+  - After a menu is chosen, every QR scan is split into named fields (e.g. KEY,ITEM,LOT,QTY)
+    and the master row is looked up by the key field. The menu template then types the values
+    into the terminal fields: `{QR.ITEM}`, `{M.SUBINVENTORY|FGWH}`, `{TAB}`, `{ENTER}`…
+  - Each menu has its own host, master table, start keys (to reach the EBS screen), exit keys,
+    and auto-send or confirm-before-send. It can also block scans not found in the master.
+  - A scan panel in the console shows the defaulted values, status and a sent counter.
+  - Setup can be exported and imported as JSON, to copy it to other devices.
+- **Master data**: import .xlsx or .csv files (row 1 = headers), choose the key column, and test a lookup.
+
 ## 1.1.0 (build 2) – 2026-10-07
 - **New look**: AIS brand colours that follow the phone's light/dark setting, rounded shapes and bolder type.
   - Home screen: gradient header with live/host counts and role, host search, quick-action chips,

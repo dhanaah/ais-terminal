@@ -130,6 +130,18 @@ fun ConnectBotNavHost(
             }
         }
 
+        composable(AisRoutes.TXN_SETUP) {
+            AdminGate(onCancel = { navController.safePopBackStack() }) {
+                org.connectbot.ais.ui.TransactionsSetupScreen(onBack = { navController.safePopBackStack() })
+            }
+        }
+
+        composable(AisRoutes.MASTERS) {
+            AdminGate(onCancel = { navController.safePopBackStack() }) {
+                org.connectbot.ais.ui.MasterDataScreen(onBack = { navController.safePopBackStack() })
+            }
+        }
+
         composable(AisRoutes.ADMIN) {
             AdminGate(onCancel = { navController.safePopBackStack() }) {
                 AdminSettingsScreen(onBack = { navController.safePopBackStack() })
