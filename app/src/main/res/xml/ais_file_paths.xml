@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AIS Terminal: files that may be shared (session logs and export ZIPs). -->
+<paths>
+	<files-path name="session_logs" path="session_logs/" />
+	<cache-path name="ais_export" path="ais_export/" />
+</paths>
